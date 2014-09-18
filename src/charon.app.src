@@ -1,0 +1,12 @@
+{application, charon,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { charon_app, []}},
+  {env, []}
+ ]}.
