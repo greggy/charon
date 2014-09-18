@@ -4,15 +4,15 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 18. сен 2014 16:04
+%%% Created : 18. сен 2014 16:54
 %%%-------------------------------------------------------------------
--module(charon_manager).
+-module(charon_storage).
 -author("greg").
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, storage_pid/1, delete_pid/1]).
+-export([start_link/1, put/2, dump/1, length/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -25,7 +25,8 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
-    storages=[]
+    data_list=[]
+    , type
 }).
 
 %%%===================================================================
@@ -38,22 +39,25 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(start_link() ->
+-spec(start_link(Type :: atom()) ->
     {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Type) ->
+    gen_server:start_link({local, Type}, ?MODULE, [Type], []).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
--spec storage_pid(atom()) -> pid().
-storage_pid(Type) ->
-    gen_server:call(?SERVER, {storage_pid, Type}).
+put(Pid, Data) ->
+    gen_server:cast(Pid, {put, Data}).
 
 
--spec delete_pid(atom()) -> ok.
-delete_pid(Type) ->
-    gen_server:cast(?SERVER, {delete_pid, Type}).
+dump(Pid) ->
+    gen_server:call(Pid, dump).
+
+
+length(Pid) ->
+    gen_server:call(Pid, length).
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -69,8 +73,8 @@ delete_pid(Type) ->
 -spec(init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
-init([]) ->
-    {ok, #state{}}.
+init([Type]) ->
+    {ok, #state{type = Type}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -87,15 +91,11 @@ init([]) ->
                      {noreply, NewState :: #state{}, timeout() | hibernate} |
                      {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
                      {stop, Reason :: term(), NewState :: #state{}}).
-handle_call({storage_pid, Type}, _From, #state{storages=Storages}=State) ->
-    {Reply, State1} =
-        case proplists:get_value(Type, Storages) of
-            undefined ->
-                {ok, Pid} = charon_sup:start_storage(Type),
-                {Pid, State#state{storages = [{Type, Pid}|Storages]}};
-            Pid -> {Pid, State}
-        end,
-    {reply, Reply, State1};
+handle_call(length, _From, #state{data_list = DataList}=State) ->
+    {reply, erlang:length(DataList), State};
+
+handle_call(dump, _From, #state{data_list = DataList}=State) ->
+    {reply, DataList, State#state{data_list = []}};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -111,9 +111,8 @@ handle_call(_Request, _From, State) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
-handle_cast({delete_pid, Type}, #state{storages=Storages}=State) ->
-    ok = charon_sup:delete_storage(Type),
-    {noreply, State#state{storages = proplists:delete(Type, Storages)}};
+handle_cast({put, Data}, #state{data_list = DataList}=State) ->
+    {noreply, State#state{data_list = [Data|DataList]}};
 
 handle_cast(_Request, State) ->
     {noreply, State}.
