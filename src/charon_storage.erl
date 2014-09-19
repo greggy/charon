@@ -47,16 +47,17 @@ start_link(Type) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-put(Pid, Data) ->
-    gen_server:cast(Pid, {put, Data}).
+put(Type, Data) ->
+    charon_manager:storage_pid(Type),
+    gen_server:cast(Type, {put, Data}).
 
 
-dump(Pid) ->
-    gen_server:call(Pid, dump).
+dump(Type) ->
+    gen_server:call(Type, dump).
 
 
-length(Pid) ->
-    gen_server:call(Pid, length).
+length(Type) ->
+    gen_server:call(Type, length).
 
 
 %%--------------------------------------------------------------------
@@ -74,6 +75,7 @@ length(Pid) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 init([Type]) ->
+    process_flag(trap_exit, true),
     {ok, #state{type = Type}}.
 
 %%--------------------------------------------------------------------
@@ -148,7 +150,8 @@ handle_info(_Info, State) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) ->
                    term()).
-terminate(_Reason, _State) ->
+terminate(Reason, _State) ->
+    lager:info("Storage wads terminated with reason ~p", [Reason]),
     ok.
 
 %%--------------------------------------------------------------------

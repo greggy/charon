@@ -11,20 +11,26 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-storages_test() ->
+storages_start_test() ->
     {ok, _Pid} = charon_sup:start_link(),
-
     charon_manager:storage_pid(counter),
+
+    [
+        ?assertEqual(charon_manager:delete_pid(counter), ok)
+    ].
+
+storages_test() ->
+    %$charon_manager:storage_pid(counter),
     lists:map(fun(X) -> charon_storage:put(counter, {test, X}) end, lists:seq(1, 10)),
 
-    charon_manager:storage_pid(gauge),
+    %%charon_manager:storage_pid(gauge),
     lists:map(fun(X) -> charon_storage:put(gauge, {test, X}) end, lists:seq(1, 10)),
 
     [
         ?assertEqual(charon_storage:length(counter), 10),
         ?assertEqual(erlang:length(charon_storage:dump(counter)), 10),
         ?assertEqual(charon_storage:length(counter), 0),
-        
+
         ?assertEqual(charon_storage:length(gauge), 10),
         ?assertEqual(erlang:length(charon_storage:dump(gauge)), 10),
         ?assertEqual(charon_storage:length(gauge), 0)
